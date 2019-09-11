@@ -127,27 +127,34 @@ export class MatDialog implements OnDestroy {
    */
   open<T, D = any, R = any>(componentOrTemplateRef: ComponentType<T> | TemplateRef<T>,
           config?: MatDialogConfig<D>): MatDialogRef<T, R> {
-
+    // 組合配置
     config = _applyConfigDefaults(config, this._defaultOptions || new MatDialogConfig());
-
+    // 防止重複打開
     if (config.id && this.getDialogById(config.id)) {
       throw Error(`Dialog with id "${config.id}" exists already. The dialog id must be unique.`);
     }
-
+    // 第一步：創建彈出層
     const overlayRef = this._createOverlay(config);
+    // 第二步：再彈出層上添加彈窗容器( MatDialogContainer )
+    // 添加了一个弹窗容器组件，这个组件是material2自己写的一个angular组件，打开弹窗时的遮罩部分以及弹窗的外轮廓其实就是这个组件
+    // 考慮為动画效果的保护、注入服务的保护
     const dialogContainer = this._attachDialogContainer(overlayRef, config);
+    // 第三步：把傳入的組件添加到創建的彈出層中創建的彈窗容器中
     const dialogRef = this._attachDialogContent<T, R>(componentOrTemplateRef,
                                                       dialogContainer,
                                                       overlayRef,
                                                       config);
-
+    // 第一次的 dialog 在 body 下創建頂層的宿主，姑且稱之為彈出容器
     // If this is the first dialog that we're opening, hide all the non-overlay content.
     if (!this.openDialogs.length) {
       this._hideNonDialogContentFromAssistiveTechnology();
     }
-
+    // 添加進隊列
     this.openDialogs.push(dialogRef);
+    // 默認添加一個關閉的訂閱，關閉時要移除此彈窗
+    // 當是最後一個彈窗時觸發全部關閉的訂閱並移除鍵盤監聽
     dialogRef.afterClosed().subscribe(() => this._removeOpenDialog(dialogRef));
+    // 觸發打開的訂閱
     this.afterOpened.next(dialogRef);
 
     return dialogRef;
